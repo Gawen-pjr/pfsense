@@ -880,6 +880,22 @@ function ldap_get_user_ous($show_complete_ou=true, $authcfg) {
 	return $ous;
 }
 
+function ldap_is_posix_group_member($username,$group,$allgroups,$recursivecount) {
+	
+	if ($recursivecount < 0) 
+		return false;
+	
+	foreach ($group['members'] as $member) {
+		if ($member == $username)
+			return true;
+		$subgroup = $allgroups[$member];
+		if(!empty($subgroup) && ldap_is_posix_group_member($username,$subgroup,$allgroups,$recursivecount-1))
+			return true;
+	}
+
+	return false;
+}
+
 function ldap_get_groups($username, $authcfg) {
 	global $debug, $config;
 	
@@ -978,9 +994,10 @@ function ldap_get_groups($username, $authcfg) {
 	if (!empty($ldapgroupcont)) {
 		/* Get LDAP Groupcontainers and split them up. */
 		$ldap_groupcontainers = split(";", $ldapgroupcont);
-		$ldapfilter = "({$ldapmemberattribute}={$username})";
-
-		/* Search each group container for the authenticating user. */
+		// $ldapfilter = "({$ldapmemberattribute}={$username})";
+		$allgroups = array();
+		
+		/* Search all groups in all containers. */
 		foreach ($ldap_groupcontainers as $ldap_groupcontainer) {
 			/* Support legacy auth container specification. */
 			if (stristr($ldap_groupcontainer, "DC=") || empty($ldapbasedn))
@@ -989,7 +1006,7 @@ function ldap_get_groups($username, $authcfg) {
 				$searchbase = "{$ldap_groupcontainer},{$ldapbasedn}";
 
 			// Search this group container in the LDAP directory to find any groups listing the authenticating user as a member.
-			$search	= @$ldapfunc($ldap, $searchbase, $ldapfilter, array($ldapgroupattribute));
+			$search	= @$ldapfunc($ldap, $searchbase, "objectClass=*", array($ldapgroupattribute,$ldapmemberattribute));
 
 			if (false === $search) {
 				// Search failed (i.e. not simply no records found), so log an error.
@@ -999,14 +1016,28 @@ function ldap_get_groups($username, $authcfg) {
 				$info = @ldap_get_entries($ldap, $search);
 
 				// Remove the 'count' element from these	 to allow 'foreach' iteration over results.
-				unset ($info[ "count" ]);
+				unset ($info["count"]);
 
 				// Add any groups found for the authenticating user to $memberof.
 				foreach ($info as $groupdata)
 				{
-					$memberof[] = $groupdata[$ldapgroupattribute][0];
-					//log_error ( "DEGUG : Groups - '$username' is a member of '" . $groupdata[ $ldapgroupattribute ][ 0 ] . "'" );
+					$groupname = $groupdata[$ldapgroupattribute][0];
+					$groupid = $ldapgroupattribute.'='.$groupname.','.$searchbase;
+					$allgroups[$groupid] = array();
+					$allgroups[$groupid]['members'] = $groupdata[$ldapmemberattribute];
+					$allgroups[$groupid]['name'] = $groupname;
 				}
+			}
+		}
+		
+		/* Time to close LDAP connection */
+		@ldap_unbind($ldap);
+
+		/* Search groups whose user is member of, supporting nested groups. */
+		$allgroupscount = count($allgroups);
+		foreach ($allgroups as $groupid => $group) {
+			if (ldap_is_posix_group_member($username,$group,$allgroups,$allgroupscount)) {
+				$memberof[] = $group['name'];
 			}
 		}
 		
@@ -1030,10 +1061,6 @@ function ldap_get_groups($username, $authcfg) {
 	
 	/* Time to close LDAP connection */
 	@ldap_unbind($ldap);
-	
-	$groups = print_r($memberof,true);
-	
-	//log_error("Returning groups ".$groups." for user $username");
 	
 	return $memberof;
 }
