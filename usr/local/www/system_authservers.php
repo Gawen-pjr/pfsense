@@ -101,6 +101,7 @@ if ($act == "edit") {
 			$pconfig['ldap_basedn'] = $a_server[$id]['ldap_basedn'];
 			$pconfig['ldap_authcn'] = $a_server[$id]['ldap_authcn'];
 			$pconfig['ldap_groupcn'] = $a_server[$id]['ldap_groupcn'];
+			$pconfig['ldap_allowed_groups'] = $a_server[$id]['ldap_allowed_groups'];
 			$pconfig['ldap_extended_enabled'] = $a_server[$id]['ldap_extended_enabled'];
 			$pconfig['ldap_extended_query'] = $a_server[$id]['ldap_extended_query'];
 			$pconfig['ldap_binddn'] = $a_server[$id]['ldap_binddn'];
@@ -246,6 +247,7 @@ if ($_POST) {
 			$server['ldap_basedn'] = $pconfig['ldap_basedn'];
 			$server['ldap_authcn'] = $pconfig['ldapauthcontainers'];
 			$server['ldap_groupcn'] = $pconfig['ldapgroupcontainers'];
+			$server['ldap_allowed_groups'] = $pconfig['ldap_allowed_groups'];
 			$server['ldap_extended_enabled'] = $pconfig['ldap_extended_enabled'];
 			$server['ldap_extended_query'] = $pconfig['ldap_extended_query'];
 			$server['ldap_attr_user'] = $pconfig['ldap_attr_user'];
@@ -626,6 +628,13 @@ function select_clicked(container) {
 										</td>
 									</tr>
 								</table>
+							</td>
+						</tr>
+						<tr>
+							<td width="22%" valign="top" class="vncell"><?=gettext("Allowed groups");?></td>
+							<td width="78%" class="vtable">
+								<input name="ldap_allowed_groups" type="text" class="formfld unknown" id="ldap_allowed_groups" size="40" value="<?=htmlspecialchars($pconfig['ldap_allowed_groups']);?>"/>
+								<br /><?=gettext("Note: Semi-Colon separated. If empty, no group checking is applied");?>
 							</td>
 						</tr>
 						<tr>

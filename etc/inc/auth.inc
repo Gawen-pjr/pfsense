@@ -1,7 +1,7 @@
 <?php
 /* $Id$ */
 /*
-	Copyright (C) 2010 Ermal Lu�i
+	Copyright (C) 2010 Ermal Lu?i
 	All rights reserved.
 
 	Copyright (C) 2007, 2008 Scott Ullrich <sullrich@gmail.com>
@@ -885,12 +885,14 @@ function ldap_is_posix_group_member($username,$group,$allgroups,$recursivecount)
 	if ($recursivecount < 0) 
 		return false;
 	
-	foreach ($group['members'] as $member) {
-		if ($member == $username)
-			return true;
-		$subgroup = $allgroups[$member];
-		if(!empty($subgroup) && ldap_is_posix_group_member($username,$subgroup,$allgroups,$recursivecount-1))
-			return true;
+	if (!empty($group['members'])) {
+		foreach ($group['members'] as $member) {
+			if ($member == $username)
+				return true;
+			$subgroup = $allgroups[$member];
+			if(!empty($subgroup) && ldap_is_posix_group_member($username,$subgroup,$allgroups,$recursivecount-1))
+				return true;
+		}
 	}
 
 	return false;
@@ -1092,35 +1094,31 @@ function ldap_backed($username, $passwd, $authcfg) {
 			$ldapproto = "ldap";
 		else
 			$ldapproto = "ldaps";
-		$ldapserver         = "{$ldapproto}://" . ldap_format_host($authcfg['host']);
-		$ldapport	    = $authcfg['ldap_port'];
+		$ldapserver                = "{$ldapproto}://" . ldap_format_host($authcfg['host']);
+		$ldapport	               = $authcfg['ldap_port'];
 		if (!empty($ldapport))
 			$ldapserver .= ":{$ldapport}";
-                $ldapbasedn         = $authcfg['ldap_basedn'];
-                $ldapbindun         = $authcfg['ldap_binddn'];
-                $ldapbindpw         = $authcfg['ldap_bindpw'];
+		$ldapbasedn                = $authcfg['ldap_basedn'];
+		$ldapbindun                = $authcfg['ldap_binddn'];
+		$ldapbindpw                = $authcfg['ldap_bindpw'];
 		if (empty($ldapbindun) || empty($ldapbindpw))
 			$ldapanon = true;
 		else
 			$ldapanon = false;
-                $ldapauthcont       = $authcfg['ldap_authcn'];
-                $ldapnameattribute  = strtolower($authcfg['ldap_attr_user']);
-                $ldapextendedqueryenabled  = $authcfg['ldap_extended_enabled'];
-                $ldapextendedquery = $authcfg['ldap_extended_query'];
-                $ldapfilter         = "";
-                if(!$ldapextendedqueryenabled)
-                {
-                        $ldapfilter = "({$ldapnameattribute}={$username})";
-                }
-                else
-                {
-                        $ldapfilter = 
-"(&({$ldapnameattribute}={$username})({$ldapextendedquery}))";
-                } 
-                $ldaptype           = "";
-                $ldapver            = $authcfg['ldap_protver'];
-		$ldapname	    = $authcfg['name'];
-		$ldapscope	    = $authcfg['ldap_scope'];
+		$ldapauthcont              = $authcfg['ldap_authcn'];
+		$ldapnameattribute         = strtolower($authcfg['ldap_attr_user']);
+		$ldapallowedgroups         = $authcfg['ldap_allowed_groups'];
+		$ldapextendedqueryenabled  = $authcfg['ldap_extended_enabled'];
+		$ldapextendedquery         = $authcfg['ldap_extended_query'];
+		$ldapfilter                = "";
+		if(!$ldapextendedqueryenabled)
+			$ldapfilter = "({$ldapnameattribute}={$username})";
+		else
+			$ldapfilter = "(&({$ldapnameattribute}={$username})({$ldapextendedquery}))";
+		$ldaptype                  = "";
+		$ldapver                   = $authcfg['ldap_protver'];
+		$ldapname	               = $authcfg['name'];
+		$ldapscope	               = $authcfg['ldap_scope'];
 	} else
 		return false;
 
@@ -1134,9 +1132,9 @@ function ldap_backed($username, $passwd, $authcfg) {
 
 		return false;
 	}
-	
-        /* Setup CA environment if needed. */
-        ldap_setup_caenv($authcfg);
+
+	/* Setup CA environment if needed. */
+	ldap_setup_caenv($authcfg);
 
 	ldap_set_option($ldap, LDAP_OPT_REFERRALS, 0);
 	ldap_set_option($ldap, LDAP_OPT_DEREF, LDAP_DEREF_SEARCHING);
@@ -1157,8 +1155,8 @@ function ldap_backed($username, $passwd, $authcfg) {
 	$ldapbindun = isset($authcfg['ldap_utf8']) ? utf8_encode($ldapbindun) : $ldapbindun;
 	$ldapbindpw = isset($authcfg['ldap_utf8']) ? utf8_encode($ldapbindpw) : $ldapbindpw;
 	if ($ldapanon == true) {
-                if (!($res = @ldap_bind($ldap)))
-                        $error = true;
+		if (!($res = @ldap_bind($ldap)))
+			$error = true;
 	} else if (!($res = @ldap_bind($ldap, $ldapbindun, $ldapbindpw)))
 		$error = true;
 
@@ -1215,10 +1213,10 @@ function ldap_backed($username, $passwd, $authcfg) {
 		}
 	}
 
-	if ($usercount != 1){
+	if ($usercount != 1) {
 		@ldap_unbind($ldap);
 		log_error(gettext("ERROR! Either LDAP search failed, or multiple users were found."));
-		return false;                         
+		return false;
 	}
 
 	/* Now lets bind as the user we found */
@@ -1229,14 +1227,25 @@ function ldap_backed($username, $passwd, $authcfg) {
 		return false;
 	}
 
-	if ($debug) {
-		$userdn = isset($authcfg['ldap_utf8']) ? utf8_decode($userdn) : $userdn;
-		log_auth(sprintf(gettext('Logged in successfully as %1$s via LDAP server %2$s with DN = %3$s.'), $username, $ldapname, $userdn));
+	// Group membership verification
+	if (!empty($ldapallowedgroups)) {
+		$allowedgroups = explode(";", $ldapallowedgroups);
+		$membergroups = ldap_get_groups($username, $authcfg);
+		$check = array_intersect($allowedgroups, $membergroups);
+		if (empty($check)) {
+			@ldap_unbind($ldap);
+			return false;
+		}
 	}
 
 	/* At this point we are bound to LDAP so the user was auth'd okay. Close connection. */
 	@ldap_unbind($ldap);
 
+	if ($debug) {
+		$userdn = isset($authcfg['ldap_utf8']) ? utf8_decode($userdn) : $userdn;
+		log_auth(sprintf(gettext('Logged in successfully as %1$s via LDAP server %2$s with DN = %3$s.'), $username, $ldapname, $userdn));
+	}
+	
 	return true;
 }
 
