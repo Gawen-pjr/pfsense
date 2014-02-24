@@ -900,30 +900,32 @@ function ldap_get_groups($username, $authcfg) {
 	}    
 	
 	//log_error("Getting LDAP groups for {$username}.");
-        if ($authcfg) {
-                if (strstr($authcfg['ldap_urltype'], "Standard"))
-                        $ldapproto = "ldap";
-                else
-                        $ldapproto = "ldaps";
-                $ldapserver         = "{$ldapproto}://" . ldap_format_host($authcfg['host']);
-                $ldapport           = $authcfg['ldap_port'];
+	if ($authcfg) {
+		if (strstr($authcfg['ldap_urltype'], "Standard"))
+			$ldapproto = "ldap";
+		else
+			$ldapproto = "ldaps";
+		$ldapserver         = "{$ldapproto}://" . ldap_format_host($authcfg['host']);
+		$ldapport           = $authcfg['ldap_port'];
 		if (!empty($ldapport))
 			$ldapserver .= ":{$ldapport}";
-                $ldapbasedn         = $authcfg['ldap_basedn'];
-                $ldapbindun         = $authcfg['ldap_binddn'];
-                $ldapbindpw         = $authcfg['ldap_bindpw'];
-                $ldapauthcont       = $authcfg['ldap_authcn'];
-                $ldapnameattribute  = strtolower($authcfg['ldap_attr_user']);
-                $ldapgroupattribute  = strtolower($authcfg['ldap_attr_member']);
-                $ldapfilter         = "({$ldapnameattribute}={$username})";
-                $ldaptype           = "";
-                $ldapver            = $authcfg['ldap_protver'];
+		$ldapbasedn          = $authcfg['ldap_basedn'];
+		$ldapbindun          = $authcfg['ldap_binddn'];
+		$ldapbindpw          = $authcfg['ldap_bindpw'];
+		$ldapauthcont        = $authcfg['ldap_authcn'];
+		$ldapgroupcont       = $authcfg['ldap_groupcn'];
+		$ldapnameattribute   = strtolower($authcfg['ldap_attr_user']);
+		$ldapgroupattribute  = strtolower($authcfg['ldap_attr_group']);
+		$ldapmemberattribute = strtolower($authcfg['ldap_attr_member']);
+		$ldapfilter          = "({$ldapnameattribute}={$username})";
+		$ldaptype            = "";
+		$ldapver             = $authcfg['ldap_protver'];
 		if (empty($ldapbindun) || empty($ldapbindpw))
-                        $ldapanon = true;
-                else
-                        $ldapanon = false;
-                $ldapname           = $authcfg['name'];
-                $ldapfallback       = false;
+			$ldapanon = true;
+		else
+			$ldapanon = false;
+		$ldapname           = $authcfg['name'];
+		$ldapfallback       = false;
 		$ldapscope          = $authcfg['ldap_scope'];
 	} else
 		return false;
@@ -931,11 +933,10 @@ function ldap_get_groups($username, $authcfg) {
 	$ldapdn             = $_SESSION['ldapdn'];
 
 	/*Convert attribute to lowercase.  php ldap arrays put everything in lowercase */
-	$ldapgroupattribute = strtolower($ldapgroupattribute);
 	$memberof = array();
 
-        /* Setup CA environment if needed. */
-        ldap_setup_caenv($authcfg);
+	/* Setup CA environment if needed. */
+	ldap_setup_caenv($authcfg);
 
 	/* connect and see if server is up */
 	$error = false;
@@ -944,9 +945,9 @@ function ldap_get_groups($username, $authcfg) {
 
 	if ($error == true) {
 		log_error(sprintf(gettext("ERROR! ldap_get_groups() Could not connect to server %s."), $ldapname));
-                return memberof;
-        }
-    
+		return memberof;
+	}
+
 	ldap_set_option($ldap, LDAP_OPT_REFERRALS, 0);
 	ldap_set_option($ldap, LDAP_OPT_DEREF, LDAP_DEREF_SEARCHING);
 	ldap_set_option($ldap, LDAP_OPT_PROTOCOL_VERSION, (int)$ldapver);
@@ -955,10 +956,10 @@ function ldap_get_groups($username, $authcfg) {
 	$ldapbindun = isset($authcfg['ldap_utf8']) ? utf8_encode($ldapbindun) : $ldapbindun;
 	$ldapbindpw = isset($authcfg['ldap_utf8']) ? utf8_encode($ldapbindpw) : $ldapbindpw;
 	if ($ldapanon == true) {
-                if (!($res = @ldap_bind($ldap))) {
+		if (!($res = @ldap_bind($ldap))) {
 			log_error(sprintf(gettext("ERROR! ldap_get_groups() could not bind anonymously to server %s."), $ldapname));
 			@ldap_close($ldap);
-                        return false;
+			return false;
 		}
 	} else if (!($res = @ldap_bind($ldap, $ldapbindun, $ldapbindpw))) {
 		log_error(sprintf(gettext("ERROR! ldap_get_groups() could not bind to server %s."), $ldapname));
@@ -969,20 +970,57 @@ function ldap_get_groups($username, $authcfg) {
 	/* get groups from DN found */
 	/* use ldap_read instead of search so we don't have to do a bunch of extra work */
 	/* since we know the DN is in $_SESSION['ldapdn'] */
-	//$search    = ldap_read($ldap, $ldapdn, "(objectclass=*)", array($ldapgroupattribute));
 	if ($ldapscope == "one")
-                $ldapfunc = "ldap_list";
-        else
-                $ldapfunc = "ldap_search";
+		$ldapfunc = "ldap_list";
+	else
+		$ldapfunc = "ldap_search";
 
-	$search    = @$ldapfunc($ldap, $ldapdn, $ldapfilter, array($ldapgroupattribute));
+	if (!empty($ldapgroupcont)) {
+		/* Get LDAP Groupcontainers and split them up. */
+		$ldap_groupcontainers = split(";", $ldapgroupcont);
+		$ldapfilter = "({$ldapmemberattribute}={$username})";
+
+		/* Search each group container for the authenticating user. */
+		foreach ($ldap_groupcontainers as $ldap_groupcontainer) {
+			/* Support legacy auth container specification. */
+			if (stristr($ldap_groupcontainer, "DC=") || empty($ldapbasedn))
+				$searchbase = $ldap_groupcontainer;
+			else
+				$searchbase = "{$ldap_groupcontainer},{$ldapbasedn}";
+
+			// Search this group container in the LDAP directory to find any groups listing the authenticating user as a member.
+			$search	= @$ldapfunc($ldap, $searchbase, $ldapfilter, array($ldapgroupattribute));
+
+			if (false === $search) {
+				// Search failed (i.e. not simply no records found), so log an error.
+				log_error ("LDAP authentication : Search for user groups resulted in error: " . ldap_error($ldap));
+			} else {
+				// Get the search results that were returned from the LDAP directory.
+				$info = @ldap_get_entries($ldap, $search);
+
+				// Remove the 'count' element from these	 to allow 'foreach' iteration over results.
+				unset ($info[ "count" ]);
+
+				// Add any groups found for the authenticating user to $memberof.
+				foreach ($info as $groupdata)
+				{
+					$memberof[] = $groupdata[$ldapgroupattribute][0];
+					//log_error ( "DEGUG : Groups - '$username' is a member of '" . $groupdata[ $ldapgroupattribute ][ 0 ] . "'" );
+				}
+			}
+		}
+		
+		return $memberof;
+	} 
+	
+	$search    = @$ldapfunc($ldap, $ldapdn, $ldapfilter, array($ldapmemberattribute));
 	$info      = @ldap_get_entries($ldap, $search);
 
 	$countem = $info["count"];	
 	
-	if(is_array($info[0][$ldapgroupattribute])) {
+	if(is_array($info[0][$ldapmemberattribute])) {
 		/* Iterate through the groups and throw them into an array */
-		foreach ($info[0][$ldapgroupattribute] as $member) {
+		foreach ($info[0][$ldapmemberattribute] as $member) {
 			if (stristr($member, "CN=") !== false) {
 				$membersplit = explode(",", $member);
 				$memberof[] = preg_replace("/CN=/i", "", $membersplit[0]);

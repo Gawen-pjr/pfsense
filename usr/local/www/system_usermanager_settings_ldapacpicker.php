@@ -46,9 +46,10 @@ if($_GET) {
 	$authcfg['ldap_bindpw'] = $_GET['bindpw'];
 	$authcfg['ldap_urltype'] = $_GET['urltype'];
 	$authcfg['ldap_protver'] = $_GET['proto'];
-	$authcfg['ldap_authcn'] = explode(";", $_GET['authcn']);
 	$authcfg['ldap_caref'] = $_GET['cert'];
 	$ous = ldap_get_user_ous(true, $authcfg);
+	$containervalue = explode(";", $_GET['containervalue']);
+	$containerid = $_GET['containerid'];
 }
 
 ?>
@@ -74,20 +75,22 @@ if($_GET) {
             </STYLE>
         </head>
 <script language="JavaScript">
+//<![CDATA[
 function post_choices() {
 
 	var ous = <?php echo count($ous); ?>;
+	var container = '<?=$containerid; ?>';
 	var i;
-		opener.document.forms[0].ldapauthcontainers.value="";
+		opener.document.getElementById(container).value="";
 	for (i = 0; i < ous; i++) {
 		if (document.forms[0].ou[i].checked) {
-			if (opener.document.forms[0].ldapauthcontainers.value != "")
-				opener.document.forms[0].ldapauthcontainers.value+=";";
-			opener.document.forms[0].ldapauthcontainers.value+=document.forms[0].ou[i].value;
+			if (opener.document.getElementById(container).value != "")
+				opener.document.getElementById(container).value+=";";
+			opener.document.getElementById(container).value+=document.forms[0].ou[i].value;
 		}
 	}
 	window.close();
--->
+//]]>
 }
 </script>
 
@@ -106,7 +109,7 @@ function post_choices() {
 <?php
 	if(is_array($ous)) {	
 		foreach($ous as $ou) {
-			if(in_array($ou, $authcfg['ldap_authcn']))
+			if(in_array($ou, $containervalue))
 				$CHECKED=" CHECKED";
 			else 
 				$CHECKED="";

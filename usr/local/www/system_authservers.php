@@ -100,6 +100,7 @@ if ($act == "edit") {
 			$pconfig['ldap_scope'] = $a_server[$id]['ldap_scope'];
 			$pconfig['ldap_basedn'] = $a_server[$id]['ldap_basedn'];
 			$pconfig['ldap_authcn'] = $a_server[$id]['ldap_authcn'];
+			$pconfig['ldap_groupcn'] = $a_server[$id]['ldap_groupcn'];
 			$pconfig['ldap_extended_enabled'] = $a_server[$id]['ldap_extended_enabled'];
 			$pconfig['ldap_extended_query'] = $a_server[$id]['ldap_extended_query'];
 			$pconfig['ldap_binddn'] = $a_server[$id]['ldap_binddn'];
@@ -244,6 +245,7 @@ if ($_POST) {
 			$server['ldap_scope'] = $pconfig['ldap_scope'];
 			$server['ldap_basedn'] = $pconfig['ldap_basedn'];
 			$server['ldap_authcn'] = $pconfig['ldapauthcontainers'];
+			$server['ldap_groupcn'] = $pconfig['ldapgroupcontainers'];
 			$server['ldap_extended_enabled'] = $pconfig['ldap_extended_enabled'];
 			$server['ldap_extended_query'] = $pconfig['ldap_extended_query'];
 			$server['ldap_attr_user'] = $pconfig['ldap_attr_user'];
@@ -394,12 +396,11 @@ function radius_srvcschange(){
 	}
 }
 
-function select_clicked() {
+function select_clicked(container) {
 	if (document.getElementById("ldap_port").value == '' ||
 	    document.getElementById("ldap_host").value == '' ||
 	    document.getElementById("ldap_scope").value == '' ||
-	    document.getElementById("ldap_basedn").value == '' ||
-	    document.getElementById("ldapauthcontainers").value == '') {
+	    document.getElementById("ldap_basedn").value == '') {
 		alert("<?=gettext("Please fill the required values.");?>");
 		return;
 	}
@@ -410,25 +411,26 @@ function select_clicked() {
 			return;
 		}
 	}
-        var url = 'system_usermanager_settings_ldapacpicker.php?';
-        url += 'port=' + document.getElementById("ldap_port").value;
-        url += '&host=' + document.getElementById("ldap_host").value;
-        url += '&scope=' + document.getElementById("ldap_scope").value;
-        url += '&basedn=' + document.getElementById("ldap_basedn").value;
-        url += '&binddn=' + document.getElementById("ldap_binddn").value;
-        url += '&bindpw=' + document.getElementById("ldap_bindpw").value;
-        url += '&urltype=' + document.getElementById("ldap_urltype").value;
-        url += '&proto=' + document.getElementById("ldap_protver").value;
-	url += '&authcn=' + document.getElementById("ldapauthcontainers").value;
+	var url = 'system_usermanager_settings_ldapacpicker.php?';
+	url += 'port=' + document.getElementById("ldap_port").value;
+	url += '&host=' + document.getElementById("ldap_host").value;
+	url += '&scope=' + document.getElementById("ldap_scope").value;
+	url += '&basedn=' + document.getElementById("ldap_basedn").value;
+	url += '&binddn=' + document.getElementById("ldap_binddn").value;
+	url += '&bindpw=' + document.getElementById("ldap_bindpw").value;
+	url += '&urltype=' + document.getElementById("ldap_urltype").value;
+	url += '&proto=' + document.getElementById("ldap_protver").value;
+	url += '&containerid=' + container;
+	url += '&containervalue=' + document.getElementById(container).value;
 	<?php if (count($a_ca) > 0): ?>
 		url += '&cert=' + document.getElementById("ldap_caref").value;
 	<?php else: ?>
 		url += '&cert=';
 	<?php endif; ?>
 
-        var oWin = window.open(url,"pfSensePop","width=620,height=400,top=150,left=150");
-        if (oWin==null || typeof(oWin)=="undefined")
-			alert("<?=gettext('Popup blocker detected.  Action aborted.');?>");
+	var oWin = window.open(url,"pfSensePop","width=620,height=400,top=150,left=150");
+	if (oWin==null || typeof(oWin)=="undefined")
+		alert("<?=gettext('Popup blocker detected. Action aborted.');?>");
 }
 //]]>
 </script>
@@ -600,10 +602,27 @@ function select_clicked() {
 										<td><?=gettext("Containers:");?> &nbsp;</td>
 										<td>
 											<input name="ldapauthcontainers" type="text" class="formfld unknown" id="ldapauthcontainers" size="40" value="<?=htmlspecialchars($pconfig['ldap_authcn']);?>"/>
-											<input type="button" onclick="select_clicked();" value="<?=gettext("Select");?>" />
+											<input type="button" onclick="select_clicked('ldapauthcontainers');" value="<?=gettext("Select");?>" />
 											<br /><?=gettext("Note: Semi-Colon separated. This will be prepended to the search base dn above or you can specify full container path.");?>
 											<br /><?=gettext("Example: CN=Users;DC=example");?>
 											<br /><?=gettext("Example: CN=Users,DC=example,DC=com;OU=OtherUsers,DC=example,DC=com ");?>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+						<tr>
+							<td width="22%" valign="top" class="vncell"><?=gettext("Groups containers");?></td>
+							<td width="78%" class="vtable">
+								<table border="0" cellspacing="0" cellpadding="2" summary="groups containers">
+									<tr>
+										<td><?=gettext("Containers:");?> &nbsp;</td>
+										<td>
+											<input name="ldapgroupcontainers" type="text" class="formfld unknown" id="ldapgroupcontainers" size="40" value="<?=htmlspecialchars($pconfig['ldap_groupcn']);?>"/>
+											<input type="button" onclick="select_clicked('ldapgroupcontainers');" value="<?=gettext("Select");?>" />
+											<br /><?=gettext("Note: Semi-Colon separated. This will be prepended to the search base dn above or you can specify full container path.");?>
+											<br /><?=gettext("Example: CN=Group;DC=example");?>
+											<br /><?=gettext("Example: CN=Group,DC=example,DC=com;OU=OtherGroups,DC=example,DC=com ");?>
 										</td>
 									</tr>
 								</table>
