@@ -889,7 +889,7 @@ function ldap_is_posix_group_member($username,$group,$allgroups,$recursivecount)
 		foreach ($group['members'] as $member) {
 			if ($member == $username)
 				return true;
-			$subgroup = $allgroups[$member];
+			$subgroup = $allgroups[mb_strtolower($member)];
 			if(!empty($subgroup) && ldap_is_posix_group_member($username,$subgroup,$allgroups,$recursivecount-1))
 				return true;
 		}
@@ -1024,7 +1024,7 @@ function ldap_get_groups($username, $authcfg) {
 				foreach ($info as $groupdata)
 				{
 					$groupname = $groupdata[$ldapgroupattribute][0];
-					$groupid = $ldapgroupattribute.'='.$groupname.','.$searchbase;
+					$groupid = mb_strtolower($ldapgroupattribute.'='.$groupname.','.$searchbase);
 					$allgroups[$groupid] = array();
 					$allgroups[$groupid]['members'] = $groupdata[$ldapmemberattribute];
 					$allgroups[$groupid]['name'] = $groupname;
